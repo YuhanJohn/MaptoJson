@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple click event</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+    </style>
+<script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+<script type="text/javascript" src="smartphone/js/jquery.min.js"></script>
+<script type="text/javascript" src="smartphone/js/jquery.easing.1.3.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script type='text/javascript'>
+/*
+{
+ "maps":
+ {
+  "center":{"lat":"24.120818","lng":"120.67302749999999"},
+  "url":"nchusc.jpg",
+  "NE":{"lat":"24.121246","lng":"120.67343499999993"},
+  "SW":{"lat":"24.12039","lng":"120.67262000000005"}
+ },
+ "Points":
+ [
+  {"Beacon":"","Position":"","lat":"24.1207616","lng":"120.67330620000007"},
+  {"Beacon":"","Position":"","lat":"24.120418877436336","lng":"120.67317208954933"}
+ ]
+}
+*/
+
+var mapCanvas, geocoder, infoWnd;
+var boundsBox, resultMarker;
+var Maps = [];
+var gooMarker = [];
+var mapjson ;
+var bpic = "smartphone/images/wifi.png";
+var cpic = "smartphone/images/bighouse.png";
+var Target = "smartphone/images/plus.png";
+$(document).ready(function(){//首先以blogger api匯入 測試用mapjson頁面的JSON格式資料 **這邊應該寫成更通用 讓主辦方能輸入網址才是
+    $.getJSON("https://www.googleapis.com/blogger/v3/blogs/4267204410839545163/pages/7826106760647590919?key=AIzaSyBmT4ZycIuDhq4Bk4aYQGuDynt6ib-u690",function(result){
+		mapjson = JSON.parse(result.content);
+		//alert(mapjson.Points[0].lat);
+		initialize();
+		for(var i=0 ; i < mapjson.Points.length ; i++){	
+			setJson(mapjson.Points[i].Beacon,mapjson.Points[i].Position,mapjson.Points[i].lat,mapjson.Points[i].lng);
+		}
+		MapShowALL();//顯示所有位置圖案
+    });
+});
+function initialize() {//google map 相關程式
+  var initPos = new google.maps.LatLng(mapjson.maps.center.lat,mapjson.maps.center.lng);
+  mapCanvas = new google.maps.Map(document.getElementById("map_canvas"), {
+    center : initPos,
+    zoom : 18,
+    mapTypeId : google.maps.MapTypeId.HYBRID
+  });
+  
+  var icon = new google.maps.MarkerImage();//reserve location 的 icon
+  icon.url = "https://chart.googleapis.com/chart?chst=d_bubble_text_small&chld=bb|reverse%20location|FFB573|000000";
+  icon.size = new google.maps.Size(145, 42);
+  icon.anchor = new google.maps.Point(0, 42);
+  var requestMarkerLabel = createMarker({
+    map: mapCanvas,
+    icon: icon,
+    clickable: false
+  });
+  var requestMarker = createMarker({//可以拖動的icon
+    map: mapCanvas,
+    position: initPos,
+    draggable: true,
+	icon: Target,
+    zIndex: Infinity
+  });
+  requestMarkerLabel.bindTo("position", requestMarker);
+  
+  
+  var icon = new google.maps.MarkerImage();//目前沒有使用
+  icon.url = "https://chart.googleapis.com/chart?chst=d_bubble_text_small&chld=bbbr|geometry.location|C6EF8C|000000";
+  icon.size = new google.maps.Size(162, 42);
+  icon.anchor = new google.maps.Point(162, 42);
+  var resultMarkerLabel = createMarker({
+    map: mapCanvas,
+    icon: icon,
+    clickable: false
+  });
+  resultMarker = createMarker({
+    clickable: false,
+    icon: "https://chart.googleapis.com/chart?chst=d_map_pin_icon&chld=location|FFFF00"
+  });
+  resultMarkerLabel.bindTo("position", resultMarker);
+  resultMarkerLabel.bindTo("map", resultMarker);
+  
+  boundsBox = new google.maps.Rectangle();
+  boundsBox.bindTo("map", resultMarker);
+  
+  //infoWindow
+  infoWnd = new google.maps.InfoWindow();
+  infoWnd.setContent("Please drag me.");
+  infoWnd.open(null, requestMarker);
+  
+  //Reverse geocode
+  google.maps.event.addListener(requestMarker, "dragstart", function(mouseEvt){//拖動開始事件
+    infoWnd.close();
+	requestMarkerLabel.setVisible(false);
+  });
+  
+  google.maps.event.addListener(requestMarker, "dragend", function(mouseEvt){//拖動結束事件
+    var request = {
+      location: mouseEvt.latLng
+    };
+    geocoder = new google.maps.Geocoder();
+	requestMarkerLabel.setVisible(true);
+    //geocoder.geocode(request, callback_geododer);
+  });
+  
+  google.maps.event.addListener(requestMarker, "click", function() {//點選後新增位置資料
+		var Bea = $("#text-bea").val();
+		var Pos = $("#text-pos").val();
+		if(Bea==""){//沒有Beacon序號設定為教室圖案
+			placeMarker(requestMarker.getPosition(),cpic);
+		}else if(Bea!=""){//有Beacon序號就是Beaoon位置圖案
+			placeMarker(requestMarker.getPosition(),bpic);
+		}
+		alert("Success");
+		setJson(Bea,Pos,requestMarker.getPosition().lat(),requestMarker.getPosition().lng());
+		/*for spreetsheet
+		var MySubmit = "https://docs.google.com/forms/d/1b43xkgW3RUXL1e646oUvJL4d2p8IhuP45nhn7Fy_At0/formResponse?entry.59133143="+Bea+"&entry.1962771104="+Pos+"&entry.1131653975="+requestMarker.getPosition().lat()+"&entry.1388177908="+requestMarker.getPosition().lng()+"&submit=Submit";
+		$("#formresponse").html(unescape("%3Cscript type='text/javascript' src='" + MySubmit + "'%3E%3C/script%3E"));
+		alert(requestMarker.getPosition().lat()+","+requestMarker.getPosition().lng()+","+Bea+","+Pos);*/
+		$("#text-bea").val("");
+		$("#text-pos").val("");
+      });
+	  
+	
+	var imageBounds = new google.maps.LatLngBounds(
+      new google.maps.LatLng(mapjson.maps.SW.lat,mapjson.maps.SW.lng),
+      new google.maps.LatLng(mapjson.maps.NE.lat,mapjson.maps.NE.lng)
+	);
+
+  historicalOverlay = new google.maps.GroundOverlay(mapjson.maps.url,imageBounds);
+  addOverlay();
+  
+}
+
+function placeMarker(n,m){//一開始會落下所有位置圖案的功能
+		//var center = mapCanvas.getCenter();
+		gooMarker.push(new google.maps.Marker({
+			map:mapCanvas,
+			position: n,
+			animation: google.maps.Animation.DROP,
+			icon: m
+		}));
+}//Default:https://mts.googleapis.com/vt/icon/name=icons/spotlight/spotlight-poi.png&scale=1
+	
+function showMap(geocodeResult) {
+  var geometry = geocodeResult.geometry;
+  var viewport = geometry.viewport;
+  boundsBox.setBounds(viewport);
+  mapCanvas.fitBounds(viewport);
+  resultMarker.setPosition(geometry.location);
+  infoWnd.setContent("<div style='overflow:visible;height:100px;'>formatted_address=<br>"+ geocodeResult.formatted_address + "</div>");
+  infoWnd.open(null, resultMarker);
+}
+
+function createMarker(opts) {
+  var marker = new google.maps.Marker(opts);
+  return marker;
+}
+
+//google.maps.event.addDomListener(document.getElementById("MAPON"), "click", function(){initialize()});
+
+function addOverlay() {
+    historicalOverlay.setMap(mapCanvas);
+}
+
+function setJson(b,p,la,ln){//do the array
+	//document.getElementById("listPanel").value="['"+b,p,la,ln+"']";
+	//alert(b+","+p+","+la+","+ln);
+	Maps[Maps.length] = [b,p,la,ln];
+	//$("#listPanel").append(Maps[Maps.length-1]);
+	//alert(Maps[Maps.length-1][2]);
+}
+
+function showMaps(){//產生JSON格式的資料
+	/*
+	for(var i=0 ; i<Maps.length ; i++){
+		$("#listPanel").append(Maps[i]);
+	}*/
+	document.getElementById("listPanel").innerHTML ="";
+	document.getElementById("listPanel").value ='{"maps":{"center":{"lat":"'+historicalOverlay.getBounds().getCenter().lat()+'","lng":"'+historicalOverlay.getBounds().getCenter().lng()+'"},"url":"'+historicalOverlay.getUrl()+'","NE":{"lat":"'+historicalOverlay.getBounds().getNorthEast().lat()+'","lng":"'+historicalOverlay.getBounds().getNorthEast().lng()+'"},"SW":{"lat":"'+historicalOverlay.getBounds().getSouthWest().lat()+'","lng":"'+historicalOverlay.getBounds().getSouthWest().lng()+'"}}';
+	var part1 = ',"Points":[';
+		for(var i=0 ; i<Maps.length ; i++){
+			//alert(Maps[i][2]);
+			if(i == Maps.length-1){
+				part1 += '{"Beacon":"'+Maps[i][0]+'","Position":"'+Maps[i][1]+'","lat":"'+Maps[i][2]+'","lng":"'+Maps[i][3]+'"}]}';
+			}else{
+				part1 += '{"Beacon":"'+Maps[i][0]+'","Position":"'+Maps[i][1]+'","lat":"'+Maps[i][2]+'","lng":"'+Maps[i][3]+'"},';
+			}
+		}
+	document.getElementById("listPanel").value += part1;	
+}
+
+function hideMarkers(){
+    for(var i=0; i<gooMarker.length; i++){
+        gooMarker[i].setVisible(false);
+    }
+}
+
+function MapShowBeacon(){//顯示beacon位置圖案
+	document.getElementById("text-bea").disabled = false;
+	hideMarkers();
+	for(var i=0 ; i < Maps.length ; i++){
+		if(Maps[i][0]!=""){
+			//alert("123");
+			var MarkerPos = new google.maps.LatLng(Maps[i][2],Maps[i][3]);
+			placeMarker(MarkerPos,bpic);
+		}	
+	}
+}
+
+function MapShowRoom(){//顯示教室位置圖案
+	hideMarkers();
+	document.getElementById("text-bea").disabled = true;
+	for(var i=0 ; i < Maps.length ; i++){
+		if(Maps[i][0]==""){
+			//alert("123");
+			var MarkerPos = new google.maps.LatLng(Maps[i][2],Maps[i][3]);
+			placeMarker(MarkerPos,cpic);
+		}	
+	}
+}
+
+function MapShowALL(){//顯示所有位置圖案
+	document.getElementById("text-bea").disabled = false;
+	hideMarkers();
+	for(var i=0 ; i < Maps.length ; i++){
+		if(Maps[i][0]==""){
+			//alert("123");
+			var MarkerPos = new google.maps.LatLng(Maps[i][2],Maps[i][3]);
+			placeMarker(MarkerPos,cpic);
+		}else{
+			var MarkerPos = new google.maps.LatLng(Maps[i][2],Maps[i][3]);
+			placeMarker(MarkerPos,bpic);
+		}		
+	}
+}
+//https://docs.google.com/forms/d/1b43xkgW3RUXL1e646oUvJL4d2p8IhuP45nhn7Fy_At0/formResponse?entry.59133143=21fs54f8s&entry.1962771104=Lobby&entry.1131653975=24.1207616&entry.1388177908=120.6733062&submit=Submit
+</script>
+</head>
+  <body>
+  <div class="contact-form">
+	<span id="formresponse"></span>
+	<h3>新增Beacon：</h3>
+	<div>
+		<span><label>iBeacon：</label></span>
+		<span><input name="ibeacon" type="text" class="textbox" id="text-bea"></span>
+	</div>
+	<div>
+		<span><label>position：</label></span>
+		<span><input name="position" type="text" class="textbox" id="text-pos"></span>
+	</div>
+   </div>		
+    <div id="map_canvas" style="width: 1200px; height: 500px;"></div>
+	<textarea id='listPanel' cols='80' rows='5'></textarea></br>
+	<span><input type="submit" class="mybutton" value="Json"  id="SHMARK" onclick="showMaps()"></span>
+	<span><input type="submit" class="mybutton" value="Beacon"  id="BINP" onclick="MapShowBeacon()"></span>
+	<span><input type="submit" class="mybutton" value="Room"  id="RINP" onclick="MapShowRoom()"></span>
+	<span><input type="submit" class="mybutton" value="ALL"  id="AINP" onclick="MapShowALL()"></span>
+  </body>
+</html>

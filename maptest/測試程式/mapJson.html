@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script>
+var mapjson ;
+$(document).ready(function(){
+    $.getJSON("https://www.googleapis.com/blogger/v3/blogs/4267204410839545163/pages/6783034841142667751?key=AIzaSyBmT4ZycIuDhq4Bk4aYQGuDynt6ib-u690",function(result){
+		mapjson = JSON.parse(result.content);
+       //$("div").append(mapjson);
+    });
+});
+
+function test(){
+	$("div").append(mapjson.maps.center.lat);
+}
+</script>
+</head>
+<body>
+
+<button id="GJD">Get JSON data</button>
+<button onclick="test()">test</button>
+<div></div>
+
+</body>
+</html>
